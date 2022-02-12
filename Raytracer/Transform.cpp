@@ -29,7 +29,7 @@ mat4 Transform::lookat(vec3& eye, vec3& center, vec3& up)
 	vec3 forward = glm::normalize(eye - center);
 	vec3 right = glm::normalize(glm::cross(up, forward));
 	vec3 properUp = glm::normalize(glm::cross(forward, right));
-	vec3 e = vec3(-glm::dot(eye, forward), -glm::dot(eye, right), -glm::dot(eye, properUp));
+	vec3 e = vec3(-glm::dot(eye, right), -glm::dot(eye, properUp), -glm::dot(eye, forward));
 
 	mat4 ret = mat4(right.x, properUp.x, forward.x, 0.0f,
 		right.y, properUp.y, forward.y, 0.0f,
