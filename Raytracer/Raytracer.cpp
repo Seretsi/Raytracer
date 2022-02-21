@@ -1,3 +1,8 @@
+
+#ifndef GLM_FORCE_RADIANS
+#define GLM_FORCE_RADIANS
+#endif
+
 #include <iostream>
 #include "include\FreeImage.h"
 #include <string>
@@ -5,10 +10,6 @@
 //#include "vector.h"
 //#include "matrix.h"
 #include "Transform.h"
-
-#ifndef GLM_FORCE_RADIANS
-#define GLM_FORCE_RADIANS
-#endif
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <vector>
@@ -54,7 +55,7 @@ const float EPSILON = 5e-5;
 
         */
 
-const int w = 50, h = 50;
+const int w = 100, h = 100;
 std::string fname = "outfile.png";
 
 struct Intersection
@@ -70,20 +71,22 @@ vec3 up = vec3(0, 1, 0);
 float fov = 30.0f;
 
 void windowReframe();
+bool readPixels(int w, int h, std::vector<float>& data, std::vector<BYTE>& raw_pixels);
 vec3 rayDir(vec3 eye, int i, int j);
 Intersection findIntersection(vec3 ray);
 void intersectsTriPlane(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersection& intersection);
-void insideTri(int ind_x, int ind_y, int ind_z, Intersection& intersection);;
 vec3 findColour(Intersection hit);
 
 int main()
 {
     //open cmd line args
     // open and parse scene file
-    std::cout << "_______________WELCOME TO TAS RAYTRACER_______________\n";
+    std::cout << "_______________WELCOME TO T.A.S RAYTRACER_______________\n";
     std::cout << "version 0.1 dev\n";
+
     int pixelCount = w * h;
-    BYTE *frame = new BYTE[3*pixelCount];
+    std::vector<float> framebuf;
+    framebuf.reserve(pixelCount);
     FreeImage_Initialise();
     
     // generate view mat
@@ -106,21 +109,48 @@ int main()
             // get intersection data
             Intersection hit = findIntersection(ray);
             // get colour
-            vec3 colour = findColour(hit);
-            frame[i * w + j * 3] = colour[0];
-            frame[i * w + j * 3+1] = colour[1];
-            frame[i * w + j * 3+2] = colour[2];
+            vec3 colour = vec3(1.0f, 0.0f, 0.0f); // findColour(hit);
+
+            //framebuf[i * w * 3 + j * 3] = colour[0];
+            framebuf.push_back(colour[0]);
+            framebuf.push_back(colour[1]);
+            framebuf.push_back(colour[2]);
+            //std::cout << sizeof(unsigned char);
         }
+//        std::cout << std::endl;
     }
 
     // save frame
-    FIBITMAP* img = FreeImage_ConvertFromRawBits(frame, w, h, w * 3, 24, 0xFF0000, 0x00FF00, 0x0000FF, false);
+    std::vector<BYTE> rawFrame;
+    //rawFrame.resize(3 * pixelCount);
+    readPixels(w, h, framebuf, rawFrame); // add typedef <> thing
+    FIBITMAP* img = FreeImage_ConvertFromRawBits(rawFrame.data(), w, h, w * 3, 24, 0xFF0000, 0x00FF00, 0x0000FF, true);
     FreeImage_Save(FIF_PNG, img, fname.c_str(), 0);
     
     // clean up
     FreeImage_DeInitialise();
-    std::cout << "Hello World!\n";
-    //system("pause");
+    std::cout << "TRACING COMPLETE\n";
+    system("pause");
+}
+
+// lots of data loss operations 
+bool readPixels(int w, int h, std::vector<float>& data, std::vector<BYTE>& raw_pixels)
+{
+    int index = 0;
+    std::vector<BYTE> pixel; pixel.resize(3);
+    while (index < data.size())
+    {
+        // create pixel
+        pixel[index % 3] = 255*data[index];
+        if (index % 3 == 2)
+        {
+            raw_pixels.push_back(pixel[2]);
+            raw_pixels.push_back(pixel[1]);
+            raw_pixels.push_back(pixel[0]);
+        }
+        index++;
+    }
+    return true;
 }
 
 vec3 rayDir(vec3 eye, int i, int j)
@@ -149,22 +179,18 @@ Intersection findIntersection(vec3 ray) // scene is global var for now
 tri 0 1 2
 tri 0 2 3
 */
-    // check each tri for intersection
-        // check plane intersection
-        // check within
-        //don't leave early
     intersectsTriPlane(0, 1, 2, ray, intersection);
-    insideTri(0, 1, 2, intersection);
     intersectsTriPlane(0, 2, 3, ray, intersection);
-    insideTri(0, 2, 3, intersection);
 
     return intersection;
 }
 
 vec3 findColour(Intersection hit)
 {
+    if (hit.hitObject)
+        return vec3(1.0f, 0.0f, 0.0f);
     //nudge hit location lightward
-    return vec3();
+    return vec3(0.0f, 0.0f, 1.0f);
 }
 
 void intersectsTriPlane(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersection& intersection)
@@ -205,9 +231,4 @@ void intersectsTriPlane(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Inte
             intersection.hitObject = true;
         }
     }
-}
-
-void insideTri(int ind_x, int ind_y, int ind_z, Intersection& intersection)
-{
-
 }
