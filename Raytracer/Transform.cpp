@@ -3,7 +3,7 @@
 /*
 	Accept normalized axis and rotate
 */
-mat3 Transform::rotate(float degrees, vec3& axis)
+mat3 Transform::rotate(const float degrees, const vec3& axis)
 {
 	// rodriguez formula
 	float rads = degrees * glm::pi<float>() / 180.0f;
@@ -23,7 +23,7 @@ mat3 Transform::rotate(float degrees, vec3& axis)
 	return ret;
 }
 
-mat4 Transform::lookat(vec3& eye, vec3& center, vec3& up)
+mat4 Transform::lookat(const vec3& eye, const vec3& center, const vec3& up)
 {
 	//computer coordinate system
 	vec3 forward = glm::normalize(eye - center);

@@ -12,7 +12,7 @@ typedef glm::vec3 vec3;
 class Transform
 {
 public:
-	static mat3 rotate(float degrees, vec3& axis);
+	static mat3 rotate(const float degrees, const vec3& axis);
 	
-	static mat4 lookat(vec3& eye, vec3& center, vec3& up);
+	static mat4 lookat(const vec3& eye, const vec3& center, const vec3& up);
 };
