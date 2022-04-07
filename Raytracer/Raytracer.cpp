@@ -61,15 +61,15 @@ std::string fname = "outfile.png";
 struct Intersection
 {
     float mindist = std::numeric_limits<float>::max();
-    bool hitObject;
+    bool hitObject = false;
 };
 
 struct Camera
 {
     //camera
-    vec3 eye = vec3(0.0f, 0.0f, 4);
-    vec3 center = vec3(1, 0, 0);
-    vec3 up = vec3(0, 1, 0);
+    vec3 eye = vec3(0.0f, 0.0f, 4.0f);
+    vec3 center = vec3(1.0f, 0.0f, 0.0f);
+    vec3 up = vec3(0.0f, 1.0f, 0.0f);
 };
 
 float fov = 30.0f;
@@ -104,6 +104,7 @@ int main()
     
     // rendering
     // begin raytracing
+    float totalPixels = w * h;
     for (int i = 0; i < h; i++)
     {
         for (int j = 0; j < w; j++)
@@ -111,7 +112,7 @@ int main()
             // get direction
             vec3 ray = rayDir(cam, i, j);
             // get intersection data
-              Intersection hit = findIntersection(ray, cam);
+            Intersection hit = findIntersection(ray, cam);
             // get colour
             vec3 colour = findColour(hit);
 
@@ -120,13 +121,14 @@ int main()
             framebuf.push_back(colour[1]);
             framebuf.push_back(colour[2]);
             //std::cout << sizeof(unsigned char);
+            std::cout << "\r" << ((i+1) * (j+1)) / totalPixels * 100.0f;
         }
 //        std::cout << std::endl;
     }
 
     // save frame
     std::vector<BYTE> rawFrame;
-    rawFrame.resize(framebuf.size());
+    rawFrame.reserve(framebuf.size());
     //rawFrame.resize(3 * pixelCount);
     readPixels(w, h, framebuf, rawFrame); // add typedef <> thing
     FIBITMAP* img = FreeImage_ConvertFromRawBits(rawFrame.data(), w, h, w * 3, 24, 0xFF0000, 0x00FF00, 0x0000FF, true);
@@ -134,7 +136,7 @@ int main()
     
     // clean up
     FreeImage_DeInitialise();
-    std::cout << "TRACING COMPLETE\n";
+    std::cout << " TRACING COMPLETE\n";
     system("pause");
 }
 
@@ -162,15 +164,15 @@ vec3 rayDir(const Camera& cam, int i, int j)
 {
     float rFOV = fov * glm::pi<float>() / 180.0f;
     float a = tan(rFOV / 2.0f);
-    a *= (j - w / 2.0f) / (w / 2.0f);
     float b = a; // fovy == fovx here
+    a *= (j - w / 2.0f) / (w / 2.0f);
     b *= (h / 2.0f - i) / (h / 2.0f);
 
-    vec3 imagePlaneDir = cam.center - cam.eye; // (1, 0, -4)
+    vec3 imagePlaneDir = vec3(0.0, 0.0f, -1.0f); // cam.center - cam.eye; // (1, 0, -4)
     vec3 u = glm::normalize(glm::cross(cam.up, imagePlaneDir));
     vec3 v = glm::normalize(glm::cross(imagePlaneDir, u));
 
-    vec3 dir = glm::normalize(a*u + b*v - imagePlaneDir);
+    vec3 dir = glm::normalize(a*u + b*v + imagePlaneDir);
 
     return dir;
 }
@@ -193,7 +195,7 @@ vec3 findColour(const Intersection& hit)
     if (hit.hitObject)
         return vec3(1.0f, 0.0f, 0.0f);
     //nudge hit location lightward
-    return vec3(0.0f, 0.0f, 1.0f);
+    return vec3(0.01f, 0.01f, 0.01f);
 }
 
 void intersectsTriPlane(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersection& intersection, const Camera& cam)
@@ -205,16 +207,17 @@ void intersectsTriPlane(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Inte
     vec3 C = plane[ind_z];
     vec3 AC = C - A;
     vec3 AB = B - A;
-    vec3 n = glm::normalize(glm::cross(AB, AC));
+    vec3 n = glm::normalize(glm::cross(AC, AB)); // n in same dir to raydir
 
     //early check
     float potentialIntersection = glm::dot(rayDir, n);
-    if (potentialIntersection < 0.0f + EPSILON)
+    if (potentialIntersection < EPSILON &&
+        potentialIntersection > -EPSILON)
         return;
 
     // fill ray-plane intersection
     float hitPoint = glm::dot(A, n) - glm::dot(cam.eye, n);
-    hitPoint /= glm::dot(rayDir, n);
+    hitPoint /= potentialIntersection;
     //if (hitPoint < 0) return;
     
     vec3 P = cam.eye + rayDir * hitPoint;
@@ -226,7 +229,7 @@ void intersectsTriPlane(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Inte
     float v = glm::length(nAPB) / 2.0f;
     float w = 1.0f - u - v;
 
-    if (w < 1.0f && w > 0.0f) // inside tri
+    if (w <= 1.0f && w >= 0.0f) // inside tri
     {
         if (hitPoint > 0.0f && hitPoint < intersection.mindist)
         {
