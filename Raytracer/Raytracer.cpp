@@ -24,13 +24,18 @@ typedef glm::vec4 vec4;
 
 // include transform class
 // include object classes
-std::vector<vec3> plane = {
+std::vector<vec3> planex = {
     vec3(-1.0f, - 1.0f, 0.0f),
     vec3(1.0f, - 1.0f, 0.0f),
     vec3(1.0f, 1.0f, 0.0f),
     vec3(-1.0f, 1.0f, 0.0f)
-,{1.0f, 1.0f, 1.0f} };
-
+};
+std::vector<vec3> plane = {
+    vec3(-0.1f, -0.1f, 0.0f),
+    vec3(0.1f, -0.1f, 0.0f),
+    vec3(0.1f, 0.1f, 0.0f),
+    vec3(-0.1f, 0.1f, 0.0f)
+};
 // include parser
 // include tracer
     // num bounces
@@ -41,6 +46,8 @@ const float EPSILON = 5e-5f;
     Dev plan:
     get line-plane intersection
         create camera class
+            create camera-to-world mat
+            add rot + trans mats to move camera
         instantiate hardcoded instance
         create plane object
         create light object
@@ -50,6 +57,9 @@ const float EPSILON = 5e-5f;
             move sphere by member transform then dump stack change
         render
             - all elements need to be transform in the right place here
+            - use cam-world mat to trans eye and image plane point to world
+            - get norm direction
+            - trace with it!
     get line-sphere intersection
         implement tracing change
 
@@ -75,8 +85,9 @@ struct Camera
 float fov = 30.0f;
 
 bool readPixels(int w, int h, std::vector<float>& data, std::vector<BYTE>& raw_pixels);
-vec3 rayDir(const Camera& cam, int i, int j);
-Intersection findIntersection(vec3 ray, const Camera& cam);
+vec3 rayDir(const Camera& cam, float i, float j);
+Intersection findIntersection(const vec3 ray, const Camera& cam);
+void intersectSphere(const vec3& rayDir, const vec3& sphereCenter, const float& sphereRadius, const Camera& cam, Intersection& intersection);
 void intersectsTriPlane(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersection& intersection, const Camera& cam);
 vec3 findColour(const Intersection& hit);
 
@@ -102,28 +113,22 @@ int main()
     // transform everything by modelview 
     // get materials together
     
-    // rendering
+    // rendering -0.246164337 -0.246164337 -0.937446654 last render
     // begin raytracing
     float totalPixels = w * h;
     for (int i = 0; i < h; i++)
     {
         for (int j = 0; j < w; j++)
         {
-            // get direction
             vec3 ray = rayDir(cam, i, j);
-            // get intersection data
             Intersection hit = findIntersection(ray, cam);
-            // get colour
             vec3 colour = findColour(hit);
 
-            //framebuf[i * w * 3 + j * 3] = colour[0];
             framebuf.push_back(colour[0]);
             framebuf.push_back(colour[1]);
             framebuf.push_back(colour[2]);
-            //std::cout << sizeof(unsigned char);
-            std::cout << "\r" << ((i+1) * (j+1)) / totalPixels * 100.0f;
+            //std::cout << "\r" << ((i+1)*h + (j+1)) / totalPixels * 100.0f;
         }
-//        std::cout << std::endl;
     }
 
     // save frame
@@ -137,7 +142,6 @@ int main()
     // clean up
     FreeImage_DeInitialise();
     std::cout << " TRACING COMPLETE\n";
-    system("pause");
 }
 
 // lots of data loss operations 
@@ -160,13 +164,17 @@ bool readPixels(int w, int h, std::vector<float>& data, std::vector<BYTE>& raw_p
     return true;
 }
 
-vec3 rayDir(const Camera& cam, int i, int j)
+
+
+vec3 rayDir(const Camera& cam, float i, float j)
 {
+    // cam will contain its camtoworld mat
+    float aspectRatio = w / h;
     float rFOV = fov * glm::pi<float>() / 180.0f;
     float a = tan(rFOV / 2.0f);
     float b = a; // fovy == fovx here
-    a *= (j - w / 2.0f) / (w / 2.0f);
-    b *= (h / 2.0f - i) / (h / 2.0f);
+    a *= (((j + 0.5f) - (w / 2.0f)) / (w / 2.0f)) * aspectRatio;
+    b *= (h / 2.0f - (i + 0.5f)) / (h / 2.0f);
 
     vec3 imagePlaneDir = vec3(0.0, 0.0f, -1.0f); // cam.center - cam.eye; // (1, 0, -4)
     vec3 u = glm::normalize(glm::cross(cam.up, imagePlaneDir));
@@ -174,18 +182,19 @@ vec3 rayDir(const Camera& cam, int i, int j)
 
     vec3 dir = glm::normalize(a*u + b*v + imagePlaneDir);
 
-    return dir;
+    return dir; // fix aberrations in render. Is plane centered?
 }
 
-Intersection findIntersection(vec3 ray, const Camera& cam) // scene is global var for now
+Intersection findIntersection(const vec3 ray, const Camera& cam) // scene is global var for now
 {
     Intersection intersection;
 /*
 tri 0 1 2
 tri 0 2 3
 */
-    intersectsTriPlane(0, 1, 2, ray, intersection, cam);
-    intersectsTriPlane(0, 2, 3, ray, intersection, cam);
+    //intersectsTriPlane(0, 1, 2, ray, intersection, cam);
+    //intersectsTriPlane(0, 2, 3, ray, intersection, cam);
+    intersectSphere(ray, vec3(0.0f), 0.50f, cam, intersection);
 
     return intersection;
 }
@@ -198,27 +207,82 @@ vec3 findColour(const Intersection& hit)
     return vec3(0.01f, 0.01f, 0.01f);
 }
 
+void intersectSphere(const vec3& rayDir, const vec3& sphereCenter, const float& sphereRadius, const Camera& cam, Intersection& intersection)
+{
+    // |O + (Dt-C)|^2 - R^2
+    // early hit detection with determinate
+    float a = glm::dot(rayDir, rayDir);
+    vec3 eyeToSphere = cam.eye - sphereCenter;
+    float b = 2 * glm::dot(rayDir, eyeToSphere);
+    float c = glm::dot(eyeToSphere, eyeToSphere) - (sphereRadius * sphereRadius);
+
+    float determinate = b * b - 4 * a * c;
+    if (determinate < 0.0f) { return; }
+    if (determinate == 0)
+    {
+        intersection.hitObject = true;
+        intersection.mindist = -0.5 * b /  a;
+    }
+    else
+    {
+        intersection.hitObject = true;
+        float dist = (b > 0) ?
+            -0.5 * (b + sqrtf(determinate)) / a:
+            -0.5 * (b - sqrtf(determinate)) / a;
+        if (dist < c / dist) {
+            if (dist < 0) {
+                if (c / dist < 0) {
+                    return;
+                }
+                else {
+                    intersection.hitObject = true;
+                    intersection.mindist = c / dist;
+                }
+            }
+            else {
+                intersection.hitObject = true;
+                intersection.mindist = dist;
+            }
+        }
+        else {
+            if (c / dist < 0) {
+                if (dist < 0) {
+                    return;
+                }
+                else {
+                    intersection.hitObject = true;
+                    intersection.mindist = dist;
+                }
+            }
+            else {
+                intersection.hitObject = true;
+                intersection.mindist = c / dist;
+            }
+        }
+    }
+}
+
 void intersectsTriPlane(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersection& intersection, const Camera& cam)
 {
-    //find the normal
+    // find the normal
     // normal via cross prod
     vec3 A = plane[ind_x];
     vec3 B = plane[ind_y];
     vec3 C = plane[ind_z];
     vec3 AC = C - A;
     vec3 AB = B - A;
-    vec3 n = glm::normalize(glm::cross(AC, AB)); // n in same dir to raydir
-
+    vec3 n = glm::normalize(glm::cross(AC, AB)); 
+    
+    // n in same dir to raydir
     //early check
     float potentialIntersection = glm::dot(rayDir, n);
     if (potentialIntersection < EPSILON &&
         potentialIntersection > -EPSILON)
         return;
 
-    // fill ray-plane intersection
+    // complete ray-plane intersection
     float hitPoint = glm::dot(A, n) - glm::dot(cam.eye, n);
     hitPoint /= potentialIntersection;
-    //if (hitPoint < 0) return;
     
     vec3 P = cam.eye + rayDir * hitPoint;
     
@@ -233,7 +297,7 @@ void intersectsTriPlane(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Inte
     {
         if (hitPoint > 0.0f && hitPoint < intersection.mindist)
         {
-            std::cout << "hit!!\n";
+            //std::cout << "hit!!\n";
             intersection.mindist = hitPoint;
             intersection.hitObject = true;
         }
