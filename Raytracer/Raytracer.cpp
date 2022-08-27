@@ -78,7 +78,7 @@ struct Camera
 {
     //camera
     vec3 eye = vec3(0.0f, 0.0f, 4.0f);
-    vec3 center = vec3(1.0f, 0.0f, 0.0f);
+    vec3 center = vec3(0.0f, 0.0f, 0.0f);
     vec3 up = vec3(0.0f, 1.0f, 0.0f);
 };
 
@@ -88,7 +88,8 @@ bool readPixels(int w, int h, std::vector<float>& data, std::vector<BYTE>& raw_p
 vec3 rayDir(const Camera& cam, float i, float j);
 Intersection findIntersection(const vec3 ray, const Camera& cam);
 void intersectSphere(const vec3& rayDir, const vec3& sphereCenter, const float& sphereRadius, const Camera& cam, Intersection& intersection);
-void intersectsTriPlane(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersection& intersection, const Camera& cam);
+void intersectsTri(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersection& intersection, const Camera& cam);
+void intersectPlane(const vec3& normal, const vec3& planePos, const vec3& rayDir, const Camera& cam, Intersection& intersection);
 vec3 findColour(const Intersection& hit);
 
 int main()
@@ -115,12 +116,12 @@ int main()
     
     // rendering -0.246164337 -0.246164337 -0.937446654 last render
     // begin raytracing
-    float totalPixels = w * h;
     for (int i = 0; i < h; i++)
     {
         for (int j = 0; j < w; j++)
         {
             vec3 ray = rayDir(cam, i, j);
+            //ray = vec3(0.0f, 0.0f, -1.0f);
             Intersection hit = findIntersection(ray, cam);
             vec3 colour = findColour(hit);
 
@@ -164,8 +165,6 @@ bool readPixels(int w, int h, std::vector<float>& data, std::vector<BYTE>& raw_p
     return true;
 }
 
-
-
 vec3 rayDir(const Camera& cam, float i, float j)
 {
     // cam will contain its camtoworld mat
@@ -192,10 +191,10 @@ Intersection findIntersection(const vec3 ray, const Camera& cam) // scene is glo
 tri 0 1 2
 tri 0 2 3
 */
-    //intersectsTriPlane(0, 1, 2, ray, intersection, cam);
+    //intersectsTri(0, 1, 2, ray, intersection, cam);
     //intersectsTriPlane(0, 2, 3, ray, intersection, cam);
-    intersectSphere(ray, vec3(0.0f), 0.50f, cam, intersection);
-
+    //intersectSphere(ray, vec3(0.0f), 0.50f, cam, intersection);
+    intersectPlane(vec3(0.0f, 0.0f, 1.0f), vec3(0.0f), ray, cam, intersection);
     return intersection;
 }
 
@@ -209,26 +208,27 @@ vec3 findColour(const Intersection& hit)
 
 void intersectSphere(const vec3& rayDir, const vec3& sphereCenter, const float& sphereRadius, const Camera& cam, Intersection& intersection)
 {
-    // |O + (Dt-C)|^2 - R^2
+    // |ray eqn - center loc|^2 - radius^2 => implicit sphere with ray eqn inside. C off-center sphere
+    // |O + Dt-C|^2 - R^2
     // early hit detection with determinate
     float a = glm::dot(rayDir, rayDir);
     vec3 eyeToSphere = cam.eye - sphereCenter;
     float b = 2 * glm::dot(rayDir, eyeToSphere);
     float c = glm::dot(eyeToSphere, eyeToSphere) - (sphereRadius * sphereRadius);
 
-    float determinate = b * b - 4 * a * c;
+    float determinate = b * b - 4.0f * a * c;
     if (determinate < 0.0f) { return; }
-    if (determinate == 0)
+    if (determinate == 0.0f)
     {
         intersection.hitObject = true;
-        intersection.mindist = -0.5 * b /  a;
+        intersection.mindist = -0.5f * b /  a;
     }
     else
     {
         intersection.hitObject = true;
         float dist = (b > 0) ?
-            -0.5 * (b + sqrtf(determinate)) / a:
-            -0.5 * (b - sqrtf(determinate)) / a;
+            -0.5f * (b + sqrtf(determinate)) / a:
+            -0.5f * (b - sqrtf(determinate)) / a;
         if (dist < c / dist) {
             if (dist < 0) {
                 if (c / dist < 0) {
@@ -262,7 +262,36 @@ void intersectSphere(const vec3& rayDir, const vec3& sphereCenter, const float& 
     }
 }
 
-void intersectsTriPlane(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersection& intersection, const Camera& cam)
+void intersectPlane(const vec3& normal, const vec3& planePos, const vec3& rayDir, const Camera& cam, Intersection& intersection)
+{
+    float denom = glm::dot(normal, rayDir);
+    if (denom < EPSILON && denom > -EPSILON) return;
+
+    vec3 planePosEyeVec = planePos - cam.eye;
+    float eyePlaneNormalDot = glm::dot(planePosEyeVec, normal);
+    if (eyePlaneNormalDot < EPSILON && eyePlaneNormalDot > -EPSILON) return;
+
+    float hit = eyePlaneNormalDot / denom;
+    vec3 hitlocation = cam.eye + hit * rayDir;
+    float maxX = std::max(plane[0].x, std::max(plane[1].x, std::max(plane[2].x, plane[3].x)));
+    float minX = std::min(plane[0].x, std::min(plane[1].x, std::min(plane[2].x, plane[3].x)));
+    float maxY = std::max(plane[0].y, std::max(plane[1].y, std::max(plane[2].y, plane[3].y)));
+    float minY = std::min(plane[0].y, std::min(plane[1].y, std::min(plane[2].y, plane[3].y)));
+    float maxZ = std::max(plane[0].z, std::max(plane[1].z, std::max(plane[2].z, plane[3].z)));
+    float minZ = std::min(plane[0].z, std::min(plane[1].z, std::min(plane[2].z, plane[3].z)));
+    if (hitlocation.x <= maxX &&
+        hitlocation.x >= minX &&
+        hitlocation.y <= maxY &&
+        hitlocation.y >= minY &&
+        hitlocation.z <= maxZ &&
+        hitlocation.z >= minZ)
+    {
+        intersection.hitObject = true;
+        intersection.mindist = std::min(intersection.mindist, hit);
+    }
+}
+
+void intersectsTri(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersection& intersection, const Camera& cam)
 {
     // find the normal
     // normal via cross prod
@@ -272,7 +301,7 @@ void intersectsTriPlane(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Inte
     vec3 AC = C - A;
     vec3 AB = B - A;
     vec3 n = glm::normalize(glm::cross(AC, AB)); 
-    
+
     // n in same dir to raydir
     //early check
     float potentialIntersection = glm::dot(rayDir, n);
@@ -289,8 +318,14 @@ void intersectsTriPlane(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Inte
     vec3 AP = P - A;
     vec3 nACP = glm::cross(AC, AP);
     vec3 nAPB = glm::cross(AP, AB);
+
+    float triArea = n.length() / 2.0f;
     float u = glm::length(nACP) / 2.0f;
+    u /= triArea;
+
     float v = glm::length(nAPB) / 2.0f;
+    v /= triArea;
+
     float w = 1.0f - u - v;
 
     if (w <= 1.0f && w >= 0.0f) // inside tri
