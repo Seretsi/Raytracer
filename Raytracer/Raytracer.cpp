@@ -24,13 +24,13 @@ typedef glm::vec4 vec4;
 
 // include transform class
 // include object classes
-std::vector<vec3> planex = {
+std::vector<vec3> plane = {
     vec3(-1.0f, - 1.0f, 0.0f),
     vec3(1.0f, - 1.0f, 0.0f),
     vec3(1.0f, 1.0f, 0.0f),
     vec3(-1.0f, 1.0f, 0.0f)
 };
-std::vector<vec3> plane = {
+std::vector<vec3> planex = {
     vec3(-0.1f, -0.1f, 0.0f),
     vec3(0.1f, -0.1f, 0.0f),
     vec3(0.1f, 0.1f, 0.0f),
@@ -90,6 +90,7 @@ Intersection findIntersection(const vec3 ray, const Camera& cam);
 void intersectSphere(const vec3& rayDir, const vec3& sphereCenter, const float& sphereRadius, const Camera& cam, Intersection& intersection);
 void intersectsTri(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersection& intersection, const Camera& cam);
 void intersectPlane(const vec3& normal, const vec3& planePos, const vec3& rayDir, const Camera& cam, Intersection& intersection);
+void intersectQuad(const vec3& vert1, const vec3& vert2, const vec3& vert3, const vec3& vert4, const vec3& rayDir, const Camera& cam, Intersection& intersection);
 vec3 findColour(const Intersection& hit);
 
 int main()
@@ -104,7 +105,7 @@ int main()
     std::vector<float> framebuf;
     framebuf.reserve(pixelCount);
     FreeImage_Initialise();
-    
+
     // generate view mat
     mat4 modelview = Transform::lookat(cam.eye, cam.center, cam.up);
     //mat4 projection; // = Transform::projection(near, far, aspect, fov);
@@ -121,7 +122,6 @@ int main()
         for (int j = 0; j < w; j++)
         {
             vec3 ray = rayDir(cam, i, j);
-            //ray = vec3(0.0f, 0.0f, -1.0f);
             Intersection hit = findIntersection(ray, cam);
             vec3 colour = findColour(hit);
 
@@ -135,7 +135,6 @@ int main()
     // save frame
     std::vector<BYTE> rawFrame;
     rawFrame.reserve(framebuf.size());
-    //rawFrame.resize(3 * pixelCount);
     readPixels(w, h, framebuf, rawFrame); // add typedef <> thing
     FIBITMAP* img = FreeImage_ConvertFromRawBits(rawFrame.data(), w, h, w * 3, 24, 0xFF0000, 0x00FF00, 0x0000FF, true);
     FreeImage_Save(FIF_PNG, img, fname.c_str(), 0);
@@ -194,7 +193,8 @@ tri 0 2 3
     //intersectsTri(0, 1, 2, ray, intersection, cam);
     //intersectsTriPlane(0, 2, 3, ray, intersection, cam);
     //intersectSphere(ray, vec3(0.0f), 0.50f, cam, intersection);
-    intersectPlane(vec3(0.0f, 0.0f, 1.0f), vec3(0.0f), ray, cam, intersection);
+    //intersectPlane(vec3(0.0f, 0.0f, 1.0f), vec3(0.0f), ray, cam, intersection);
+    intersectQuad(plane[0], plane[1], plane[2], plane[3], ray, cam, intersection);
     return intersection;
 }
 
@@ -279,6 +279,42 @@ void intersectPlane(const vec3& normal, const vec3& planePos, const vec3& rayDir
     float minY = std::min(plane[0].y, std::min(plane[1].y, std::min(plane[2].y, plane[3].y)));
     float maxZ = std::max(plane[0].z, std::max(plane[1].z, std::max(plane[2].z, plane[3].z)));
     float minZ = std::min(plane[0].z, std::min(plane[1].z, std::min(plane[2].z, plane[3].z)));
+    if (hitlocation.x <= maxX &&
+        hitlocation.x >= minX &&
+        hitlocation.y <= maxY &&
+        hitlocation.y >= minY &&
+        hitlocation.z <= maxZ &&
+        hitlocation.z >= minZ)
+    {
+        intersection.hitObject = true;
+        intersection.mindist = std::min(intersection.mindist, hit);
+    }
+}
+
+void intersectQuad(const vec3& vert1, const vec3& vert2, const vec3& vert3, const vec3& vert4, const vec3& rayDir, const Camera& cam, Intersection& intersection)
+{
+    // define quad surface
+    float maxX = std::max(vert1.x, std::max(vert2.x, std::max(vert3.x, vert4.x)));
+    float minX = std::min(vert1.x, std::min(vert2.x, std::min(vert3.x, vert4.x)));
+    float maxY = std::max(vert1.y, std::max(vert2.y, std::max(vert3.y, vert4.y)));
+    float minY = std::min(vert1.y, std::min(vert2.y, std::min(vert3.y, vert4.y)));
+    float maxZ = std::max(vert1.z, std::max(vert2.z, std::max(vert3.z, vert4.z)));
+    float minZ = std::min(vert1.z, std::min(vert2.z, std::min(vert3.z, vert4.z)));
+
+    // compute the normal - use right hand rule
+    vec3 v12 = vert2 - vert1;
+    vec3 v14 = vert4 - vert2;
+    vec3 plane_normal = glm::cross(v14, v12);
+
+    float denom = glm::dot(plane_normal, rayDir);
+    if (denom < EPSILON && denom > -EPSILON) return;
+
+    vec3 planePosEyeVec = vert1 - cam.eye;
+    float eyePlaneNormalDot = glm::dot(planePosEyeVec, plane_normal);
+    if (eyePlaneNormalDot < EPSILON && eyePlaneNormalDot > -EPSILON) return;
+
+    float hit = eyePlaneNormalDot / denom;
+    vec3 hitlocation = cam.eye + hit * rayDir;
     if (hitlocation.x <= maxX &&
         hitlocation.x >= minX &&
         hitlocation.y <= maxY &&
