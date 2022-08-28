@@ -117,9 +117,9 @@ int main()
     
     // rendering -0.246164337 -0.246164337 -0.937446654 last render
     // begin raytracing
-    for (int i = 0; i < h; i++)
+    for (int i = 0; i < h; i++) //4 | 5
     {
-        for (int j = 0; j < w; j++)
+        for (int j = 0; j < w; j++) // 43 56 | 38
         {
             vec3 ray = rayDir(cam, i, j);
             Intersection hit = findIntersection(ray, cam);
@@ -307,11 +307,13 @@ void intersectQuad(const vec3& vert1, const vec3& vert2, const vec3& vert3, cons
     vec3 plane_normal = glm::cross(v14, v12);
 
     float denom = glm::dot(plane_normal, rayDir);
-    if (denom < EPSILON && denom > -EPSILON) return;
+    if (denom < EPSILON) 
+        return;
 
     vec3 planePosEyeVec = vert1 - cam.eye;
     float eyePlaneNormalDot = glm::dot(planePosEyeVec, plane_normal);
-    if (eyePlaneNormalDot < EPSILON && eyePlaneNormalDot > -EPSILON) return;
+    if (eyePlaneNormalDot < EPSILON && eyePlaneNormalDot > -EPSILON) 
+        return;
 
     float hit = eyePlaneNormalDot / denom;
     vec3 hitlocation = cam.eye + hit * rayDir;
@@ -319,11 +321,15 @@ void intersectQuad(const vec3& vert1, const vec3& vert2, const vec3& vert3, cons
         hitlocation.x >= minX &&
         hitlocation.y <= maxY &&
         hitlocation.y >= minY &&
-        hitlocation.z <= maxZ &&
-        hitlocation.z >= minZ)
+        hitlocation.z <= (maxZ+EPSILON) &&
+        hitlocation.z >= (minZ-EPSILON))
     {
         intersection.hitObject = true;
         intersection.mindist = std::min(intersection.mindist, hit);
+    }
+    else
+    {
+        int pie = 0;
     }
 }
 
