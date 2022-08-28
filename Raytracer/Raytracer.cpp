@@ -82,7 +82,7 @@ struct Camera
     vec3 up = vec3(0.0f, 1.0f, 0.0f);
 };
 
-float fov = 30.0f;
+float fov = 60.0f;
 
 bool readPixels(int w, int h, std::vector<float>& data, std::vector<BYTE>& raw_pixels);
 vec3 rayDir(const Camera& cam, float i, float j);
@@ -317,10 +317,10 @@ void intersectQuad(const vec3& vert1, const vec3& vert2, const vec3& vert3, cons
 
     float hit = eyePlaneNormalDot / denom;
     vec3 hitlocation = cam.eye + hit * rayDir;
-    if (hitlocation.x <= maxX &&
-        hitlocation.x >= minX &&
-        hitlocation.y <= maxY &&
-        hitlocation.y >= minY &&
+    if (hitlocation.x <= (maxX+EPSILON) &&
+        hitlocation.x >= (minX-EPSILON) &&
+        hitlocation.y <= (maxY+EPSILON) &&
+        hitlocation.y >= (minY-EPSILON) &&
         hitlocation.z <= (maxZ+EPSILON) &&
         hitlocation.z >= (minZ-EPSILON))
     {
