@@ -13,6 +13,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <vector>
+#include <fstream>
 
 // glm provides vector, matrix classes like glsl
 // Typedefs to make code more readable 
@@ -65,8 +66,13 @@ const float EPSILON = 5e-5f;
 
         */
 
-const int w = 100, h = 100;
-std::string fname = "outfile.png";
+const int DEFAULTWIDTH = 100, DEFAULTHEIGHT = 100;
+const std::string fname = "outfile.png";
+const std::string scene1 = "scene1.test";
+const std::string scene2 = "scene2.test";
+const std::string scene3 = "scene3.test";
+
+int w = DEFAULTHEIGHT, h = DEFAULTHEIGHT;
 
 struct Intersection
 {
@@ -82,6 +88,7 @@ struct Camera
     vec3 up = vec3(0.0f, 1.0f, 0.0f);
 };
 
+Camera cam;
 float fov = 60.0f;
 
 bool readPixels(int w, int h, std::vector<float>& data, std::vector<BYTE>& raw_pixels);
@@ -92,6 +99,7 @@ void intersectsTri(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersect
 void intersectPlane(const vec3& normal, const vec3& planePos, const vec3& rayDir, const Camera& cam, Intersection& intersection);
 void intersectQuad(const vec3& vert1, const vec3& vert2, const vec3& vert3, const vec3& vert4, const vec3& rayDir, const Camera& cam, Intersection& intersection);
 vec3 findColour(const Intersection& hit);
+void readScene(const std::string filePath);
 
 int main()
 {
@@ -100,11 +108,12 @@ int main()
     std::cout << "_______________WELCOME TO T.A.S RAYTRACER_______________\n";
     std::cout << "version 0.1 dev\n";
 
-    Camera cam;
+    FreeImage_Initialise();
+    readScene(scene1);
+
     int pixelCount = w * h;
     std::vector<float> framebuf;
     framebuf.reserve(pixelCount);
-    FreeImage_Initialise();
 
     // generate view mat
     mat4 modelview = Transform::lookat(cam.eye, cam.center, cam.up);
@@ -142,6 +151,92 @@ int main()
     // clean up
     FreeImage_DeInitialise();
     std::cout << " TRACING COMPLETE\n";
+    system("pause");
+}
+
+// transform triangles and leave in eye coordinates
+// for spheres, transform ray to sphere's coord, intersect test, then transform ray back
+void readScene(const std::string filePath)
+{
+    std::ifstream sceneDescription;
+    sceneDescription.open(filePath);
+    if (sceneDescription.is_open())
+    {
+        // while not end-of-file
+        std::string token;
+        while (sceneDescription >> token)
+        {
+            if (token == "#") {
+                std::getline(sceneDescription, token);
+            }
+            // token is size
+            else if (token == "size")
+            {
+                sceneDescription >> token;
+                w = atoi(token.c_str());
+                sceneDescription >> token;
+                h = atoi(token.c_str());
+            }
+            // 1. read the camera
+            else if (token == "camera")
+            {
+                // undefined behaviour if number is not well formatted
+                // handle multiple cameras later
+                sceneDescription >> cam.eye.x >> cam.eye.y >> cam.eye.z
+                                >> cam.center.x >> cam.center.y >> cam.center.z
+                                >> cam.up.x >> cam.up.y >> cam.up.z;
+            }
+            // ambient
+            else if (token == "ambient") {
+                std::getline(sceneDescription, token);
+            }
+            // directional
+            else if (token == "directional") {
+                std::getline(sceneDescription, token);
+            }
+            // diffuse
+            else if (token == "diffuse") {
+                std::getline(sceneDescription, token);
+            }
+            // specular
+            else if (token == "specular") {
+                std::getline(sceneDescription, token);
+            }
+            // maxverts
+            else if (token == "maxverts") {
+                std::getline(sceneDescription, token);
+            }
+            // vertex
+            else if (token == "vertex") {
+                std::getline(sceneDescription, token);
+            }
+            // tri
+            else if (token == "tri") {
+                std::getline(sceneDescription, token);
+            }
+            // sphere
+            else if (token == "sphere") {
+                std::getline(sceneDescription, token);
+            }
+            // maxdepth (for tracing depth)
+            else if (token == "maxdepth") {
+                std::getline(sceneDescription, token);
+            }
+            // output (file name string)
+            else if (token == "output") {
+                std::getline(sceneDescription, token);
+            }
+            std::cout << token << " ";
+        }
+    }
+    else
+    {
+        std::cerr << "scene file not found error";
+    }
+    // objects
+    //transformations
+    // lights
+    // materials
 }
 
 // lots of data loss operations 
