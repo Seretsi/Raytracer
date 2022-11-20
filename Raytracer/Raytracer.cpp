@@ -66,6 +66,7 @@ const float EPSILON = 5e-5f;
 
         */
 
+const float DEFAULTFOV = 60.0f;
 const int DEFAULTWIDTH = 100, DEFAULTHEIGHT = 100;
 const std::string fname = "outfile.png";
 const std::string scene1 = "scene1.test";
@@ -86,10 +87,9 @@ struct Camera
     vec3 eye = vec3(0.0f, 0.0f, 4.0f);
     vec3 center = vec3(0.0f, 0.0f, 0.0f);
     vec3 up = vec3(0.0f, 1.0f, 0.0f);
+    float fov = DEFAULTFOV;
 };
-
 Camera cam;
-float fov = 60.0f;
 
 bool readPixels(int w, int h, std::vector<float>& data, std::vector<BYTE>& raw_pixels);
 vec3 rayDir(const Camera& cam, float i, float j);
@@ -166,7 +166,7 @@ void readScene(const std::string filePath)
         std::string token;
         while (sceneDescription >> token)
         {
-            if (token == "#") {
+            if (token == "#" || token[0]=='#') {
                 std::getline(sceneDescription, token);
             }
             // token is size
@@ -184,7 +184,11 @@ void readScene(const std::string filePath)
                 // handle multiple cameras later
                 sceneDescription >> cam.eye.x >> cam.eye.y >> cam.eye.z
                                 >> cam.center.x >> cam.center.y >> cam.center.z
-                                >> cam.up.x >> cam.up.y >> cam.up.z;
+                                >> cam.up.x >> cam.up.y >> cam.up.z >> cam.fov;
+                std::cout << "camera loaded successfully!" << std::endl;
+            }
+            else if (token == "point") {
+                std::getline(sceneDescription, token);
             }
             // ambient
             else if (token == "ambient") {
@@ -226,7 +230,12 @@ void readScene(const std::string filePath)
             else if (token == "output") {
                 std::getline(sceneDescription, token);
             }
-            std::cout << token << " ";
+            else {
+                std::cout << "bad token detected: " << token << " ";
+                std::getline(sceneDescription, token);
+                std::cout << token << std::endl;
+            }
+            //std::cout << token << " ";
         }
     }
     else
@@ -263,7 +272,7 @@ vec3 rayDir(const Camera& cam, float i, float j)
 {
     // cam will contain its camtoworld mat
     float aspectRatio = w / h;
-    float rFOV = fov * glm::pi<float>() / 180.0f;
+    float rFOV = cam.fov * glm::pi<float>() / 180.0f;
     float a = tan(rFOV / 2.0f);
     float b = a; // fovy == fovx here
     a *= (((j + 0.5f) - (w / 2.0f)) / (w / 2.0f)) * aspectRatio;
