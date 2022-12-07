@@ -235,7 +235,6 @@ void readScene(const std::string filePath)
                 std::getline(sceneDescription, token);
                 std::cout << token << std::endl;
             }
-            //std::cout << token << " ";
         }
     }
     else
