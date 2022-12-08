@@ -151,7 +151,7 @@ int main()
     // clean up
     FreeImage_DeInitialise();
     std::cout << " TRACING COMPLETE\n";
-    system("pause");
+    //system("pause");
 }
 
 // transform triangles and leave in eye coordinates
@@ -172,10 +172,8 @@ void readScene(const std::string filePath)
             // token is size
             else if (token == "size")
             {
-                sceneDescription >> token;
-                w = atoi(token.c_str());
-                sceneDescription >> token;
-                h = atoi(token.c_str());
+                sceneDescription >> w;
+                sceneDescription >> h;
             }
             // 1. read the camera
             else if (token == "camera")
@@ -270,11 +268,11 @@ bool readPixels(int w, int h, std::vector<float>& data, std::vector<BYTE>& raw_p
 vec3 rayDir(const Camera& cam, float i, float j)
 {
     // cam will contain its camtoworld mat
-    float aspectRatio = w / h;
+    float aspectRatio = (float)w / (float)h;
     float rFOV = cam.fov * glm::pi<float>() / 180.0f;
     float a = tan(rFOV / 2.0f);
     float b = a; // fovy == fovx here
-    a *= (((j + 0.5f) - (w / 2.0f)) / (w / 2.0f)) * aspectRatio;
+    a *= (((j + 0.5f) - (w / 2.0f)) / (w / 2.0f))*aspectRatio;
     b *= (h / 2.0f - (i + 0.5f)) / (h / 2.0f);
 
     vec3 imagePlaneDir = vec3(0.0, 0.0f, -1.0f); // cam.center - cam.eye; // (1, 0, -4)
