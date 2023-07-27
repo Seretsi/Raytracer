@@ -291,11 +291,11 @@ Intersection findIntersection(const vec3 ray, const Camera& cam) // scene is glo
 tri 0 1 2
 tri 0 2 3
 */
-    //intersectsTri(0, 1, 2, ray, intersection, cam);
-    //intersectsTriPlane(0, 2, 3, ray, intersection, cam);
+    intersectsTri(0, 1, 2, ray, intersection, cam);
+    //intersectsTri(0, 2, 3, ray, intersection, cam);
     //intersectSphere(ray, vec3(0.0f), 0.50f, cam, intersection);
     //intersectPlane(vec3(0.0f, 0.0f, 1.0f), vec3(0.0f), ray, cam, intersection);
-    intersectQuad(plane[0], plane[1], plane[2], plane[3], ray, cam, intersection);
+    //intersectQuad(plane[0], plane[1], plane[2], plane[3], ray, cam, intersection);
     return intersection;
 }
 
@@ -436,28 +436,33 @@ void intersectQuad(const vec3& vert1, const vec3& vert2, const vec3& vert3, cons
 
 void intersectsTri(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersection& intersection, const Camera& cam)
 {
-    // find the normal
+    // step1: find the normal
     // normal via cross prod
     vec3 A = plane[ind_x];
     vec3 B = plane[ind_y];
     vec3 C = plane[ind_z];
-    vec3 AC = C - A;
     vec3 AB = B - A;
-    vec3 n = glm::normalize(glm::cross(AC, AB)); 
+    vec3 AC = C - A;
+    vec3 n = glm::cross(AB, AC); 
+    float denom = glm::dot(n, n);
 
+    // step 2: intersection test
     // n in same dir to raydir
     //early check
     float potentialIntersection = glm::dot(rayDir, n);
-    if (potentialIntersection < EPSILON &&
-        potentialIntersection > -EPSILON)
+    if (fabs(potentialIntersection) < EPSILON)
         return;
 
+    //step 3: find intersection point
     // complete ray-plane intersection
     float hitPoint = glm::dot(A, n) - glm::dot(cam.eye, n);
     hitPoint /= potentialIntersection;
-    
+    if (hitPoint < 0.0f) return;
+
     vec3 P = cam.eye + rayDir * hitPoint;
     
+    // step 4: inside-outside test
+    // barycentric computation
     vec3 AP = P - A;
     vec3 nACP = glm::cross(AC, AP);
     vec3 nAPB = glm::cross(AP, AB);
