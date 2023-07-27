@@ -463,26 +463,53 @@ void intersectsTri(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersect
     
     // step 4: inside-outside test
     // barycentric computation
-    vec3 AP = P - A;
-    vec3 nACP = glm::cross(AC, AP);
-    vec3 nAPB = glm::cross(AP, AB);
+     
+    vec3 hitPointEdgeNormal;
+    //edge1
+    vec3 edge0 = B - A;
+    vec3 vp0 = P - A;
+    C = glm::cross(edge0, vp0);
+    if (glm::dot(n, C) < 0) return; // P is on the right side
 
-    float triArea = n.length() / 2.0f;
-    float u = glm::length(nACP) / 2.0f;
-    u /= triArea;
+    // edge 1
+    vec3 edge1 = C - B;
+    vec3 vp1 = P - B;
+    C = glm::cross(edge1, vp1);
+    if (glm::dot(n,C) < 0)  return; // P is on the right side
 
-    float v = glm::length(nAPB) / 2.0f;
-    v /= triArea;
+    // edge 2
+    vec3 edge2 = A - C;
+    vec3 vp2 = P - C;
+    C = glm::cross(edge2, vp2);
+    if (glm::dot(n, C) < 0) return; // P is on the right side;
 
-    float w = 1.0f - u - v;
-
-    if (w <= 1.0f && w >= 0.0f) // inside tri
+    if (hitPoint > 0.0f && hitPoint < intersection.mindist)
     {
-        if (hitPoint > 0.0f && hitPoint < intersection.mindist)
-        {
-            //std::cout << "hit!!\n";
-            intersection.mindist = hitPoint;
-            intersection.hitObject = true;
-        }
+        //std::cout << "hit!!\n";
+        intersection.mindist = hitPoint;
+        intersection.hitObject = true;
     }
+
+    //vec3 AP = P - A;
+    //vec3 nACP = glm::cross(AC, AP);
+    //vec3 nAPB = glm::cross(AP, AB);
+
+    //float triArea = n.length() / 2.0f;
+    //float u = glm::length(nACP) / 2.0f;
+    //u /= triArea;
+
+    //float v = glm::length(nAPB) / 2.0f;
+    //v /= triArea;
+
+    //float w = 1.0f - u - v;
+
+    //if (w <= 1.0f && w >= 0.0f) // inside tri
+    //{
+    //    if (hitPoint > 0.0f && hitPoint < intersection.mindist)
+    //    {
+    //        //std::cout << "hit!!\n";
+    //        intersection.mindist = hitPoint;
+    //        intersection.hitObject = true;
+    //    }
+    //}
 }
