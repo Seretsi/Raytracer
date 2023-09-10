@@ -41,7 +41,7 @@ std::vector<vec3> planex = {
 // include tracer
     // num bounces
 const int NUMBOUNCES = 1;
-const float EPSILON = 5e-5f;
+const float EPSILON = 1e-8f;
 
 /*
     Dev plan:
@@ -291,8 +291,8 @@ Intersection findIntersection(const vec3 ray, const Camera& cam) // scene is glo
 tri 0 1 2
 tri 0 2 3
 */
-    intersectsTri(0, 1, 2, ray, intersection, cam);
-    //intersectsTri(0, 2, 3, ray, intersection, cam);
+    intersectsTri(2, 1, 0, ray, intersection, cam);
+    intersectsTri(3, 2, 0, ray, intersection, cam);
     //intersectSphere(ray, vec3(0.0f), 0.50f, cam, intersection);
     //intersectPlane(vec3(0.0f, 0.0f, 1.0f), vec3(0.0f), ray, cam, intersection);
     //intersectQuad(plane[0], plane[1], plane[2], plane[3], ray, cam, intersection);
@@ -436,27 +436,29 @@ void intersectQuad(const vec3& vert1, const vec3& vert2, const vec3& vert3, cons
 
 void intersectsTri(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersection& intersection, const Camera& cam)
 {
+    const vec3 A = plane[ind_x];
+    const vec3 B = plane[ind_y];
+    const vec3 C = plane[ind_z];
+    
     // step1: find the normal
     // normal via cross prod
-    vec3 A = plane[ind_x];
-    vec3 B = plane[ind_y];
-    vec3 C = plane[ind_z];
     vec3 AB = B - A;
     vec3 AC = C - A;
-    vec3 n = glm::cross(AB, AC); 
+    vec3 n = glm::cross(AB, AC);
     float denom = glm::dot(n, n);
 
     // step 2: intersection test
     // n in same dir to raydir
     //early check
-    float potentialIntersection = glm::dot(rayDir, n);
+    float potentialIntersection = glm::dot(n, rayDir);
     if (fabs(potentialIntersection) < EPSILON)
         return;
 
     //step 3: find intersection point
     // complete ray-plane intersection
-    float hitPoint = glm::dot(A, n) - glm::dot(cam.eye, n);
-    hitPoint /= potentialIntersection;
+    float d = -glm::dot(A, n);
+    float hitPoint = -(glm::dot(n, cam.eye) + d);
+    hitPoint /= fabs(potentialIntersection);
     if (hitPoint < 0.0f) return;
 
     vec3 P = cam.eye + rayDir * hitPoint;
@@ -468,48 +470,24 @@ void intersectsTri(int ind_x, int ind_y, int ind_z, const vec3 rayDir, Intersect
     //edge1
     vec3 edge0 = B - A;
     vec3 vp0 = P - A;
-    C = glm::cross(edge0, vp0);
-    if (glm::dot(n, C) < 0) return; // P is on the right side
+    auto crossV = glm::cross(edge0, vp0);
+    if (glm::dot(n, crossV) < 0) return; // P is on the right side
 
     // edge 1
     vec3 edge1 = C - B;
     vec3 vp1 = P - B;
-    C = glm::cross(edge1, vp1);
-    if (glm::dot(n,C) < 0)  return; // P is on the right side
+    crossV = glm::cross(edge1, vp1);
+    if (glm::dot(n, crossV) < 0)  return; // P is on the right side
 
     // edge 2
     vec3 edge2 = A - C;
     vec3 vp2 = P - C;
-    C = glm::cross(edge2, vp2);
-    if (glm::dot(n, C) < 0) return; // P is on the right side;
+    crossV = glm::cross(edge2, vp2);
+    if (glm::dot(n, crossV) < 0) return; // P is on the right side;
 
     if (hitPoint > 0.0f && hitPoint < intersection.mindist)
     {
-        //std::cout << "hit!!\n";
         intersection.mindist = hitPoint;
         intersection.hitObject = true;
     }
-
-    //vec3 AP = P - A;
-    //vec3 nACP = glm::cross(AC, AP);
-    //vec3 nAPB = glm::cross(AP, AB);
-
-    //float triArea = n.length() / 2.0f;
-    //float u = glm::length(nACP) / 2.0f;
-    //u /= triArea;
-
-    //float v = glm::length(nAPB) / 2.0f;
-    //v /= triArea;
-
-    //float w = 1.0f - u - v;
-
-    //if (w <= 1.0f && w >= 0.0f) // inside tri
-    //{
-    //    if (hitPoint > 0.0f && hitPoint < intersection.mindist)
-    //    {
-    //        //std::cout << "hit!!\n";
-    //        intersection.mindist = hitPoint;
-    //        intersection.hitObject = true;
-    //    }
-    //}
 }
